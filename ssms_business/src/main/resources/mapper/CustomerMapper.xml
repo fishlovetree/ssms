@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.ws.ssms.business.mapper.CustomerMapper">
+	<resultMap id="BaseResultMap" type="com.ws.ssms.business.model.Customer">
+		<result column="customerId" property="customerId" jdbcType="INTEGER" />
+		<result column="customerNum" property="customerNum" jdbcType="VARCHAR" />
+		<result column="customerName" property="customerName" jdbcType="VARCHAR" />
+		<result column="mobile" property="mobile" jdbcType="VARCHAR" />
+		<result column="address" property="address" jdbcType="VARCHAR" />
+		<result column="idCard" property="idCard" jdbcType="VARCHAR" />
+		<result column="creator" property="creator" jdbcType="INTEGER" />
+		<result column="organizationcode" property="organizationcode" jdbcType="VARCHAR" />
+		<result column="intime" property="intime" jdbcType="TIMESTAMP" />
+		<result column="apikey" property="apikey" jdbcType="VARCHAR" />
+	</resultMap>
+
+	<select id="selectByPrimaryKey" resultMap="BaseResultMap"
+		parameterType="java.lang.Integer">
+		select * from cus_file
+		where customerId = #{customerId,jdbcType=DECIMAL}
+	</select>
+
+	<select id="selectList" resultMap="BaseResultMap">
+		select c.* from cus_file c
+		where c.status = 1
+		<if test="apikey != null and apikey != ''">
+     	    and c.apikey = #{apikey,jdbcType=VARCHAR}
+		</if>
+		order by c.customerId
+	</select>
+
+</mapper>

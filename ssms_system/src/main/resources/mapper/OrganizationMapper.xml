@@ -1,0 +1,171 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.ws.ssms.system.mapper.OrganizationMapper">
+	<resultMap id="BaseResultMap" type="com.ws.ssms.system.model.Organization">
+		<id column="ORGANIZATIONID" property="organizationid" jdbcType="DECIMAL" />
+		<result column="ORGANIZATIONCODE" property="organizationcode"
+			jdbcType="VARCHAR" />
+		<result column="ORGANIZATIONNAME" property="organizationname"
+			jdbcType="VARCHAR" />
+		<result column="PARENTID" property="parentid" jdbcType="DECIMAL" />
+		<result column="STATUS" property="status" jdbcType="DECIMAL" />
+		<result column="COMPACTOR" jdbcType="DECIMAL" property="compactor" />
+        <result column="COMPILATIONTIME" jdbcType="TIMESTAMP" property="compilationtime" />
+	</resultMap>
+	<sql id="Base_Column_List">
+		ORGANIZATIONID, ORGANIZATIONCODE, ORGANIZATIONNAME,
+		PARENTID, STATUS, COMPACTOR, COMPILATIONTIME
+	</sql>
+	<select id="selectByPrimaryKey" resultMap="BaseResultMap" parameterType="java.lang.Integer">
+		select
+		<include refid="Base_Column_List" />
+		from SYS_ORGANIZATION
+		where ORGANIZATIONID =
+		#{organizationid,jdbcType=DECIMAL}
+	</select>
+	
+	<!--根据code获取组织机构 -->
+	<select id="selectBycode" resultMap="BaseResultMap">
+		select
+		<include refid="Base_Column_List" />
+		from SYS_ORGANIZATION
+		where ORGANIZATIONCODE =
+		#{organizationcode,jdbcType=VARCHAR}
+	</select>
+	
+	<!--获取组织机构集合 -->
+	<select id="selectList" resultMap="BaseResultMap">
+		select
+		n.ORGANIZATIONID, n.ORGANIZATIONCODE, n.ORGANIZATIONNAME,
+		n.PARENTID, n.STATUS
+		from SYS_ORGANIZATION n where n.STATUS = 1
+		<if test="organizationcode != null and organizationcode != ''">
+		    and FIND_IN_SET(n.ORGANIZATIONCODE,getChildList(#{organizationcode,jdbcType=VARCHAR}))   
+		</if>
+		order by n.ORGANIZATIONID
+	</select>
+	<!-- 通过上级组织机构id查询子集组织机构集合 -->
+	<select id="selectChildren" resultMap="BaseResultMap" 
+		parameterType="java.lang.String">
+		select
+		<include refid="Base_Column_List" />
+		from SYS_ORGANIZATION
+		where STATUS = 1
+		<if test="organizationcode != null and organizationcode != ''">
+		    and FIND_IN_SET(ORGANIZATIONCODE,getChildList(#{organizationcode,jdbcType=VARCHAR}))   
+		</if>
+		order by ORGANIZATIONID
+	</select>
+	<!-- 通过上级组织机构id查询子集组织机构编码-->
+	<select id="selectChildrenCode" resultType="java.lang.String"
+		parameterType="java.lang.String">
+		select
+		ORGANIZATIONCODE
+		from SYS_ORGANIZATION
+		where STATUS = 1
+		<if test="organizationcode != null and organizationcode != ''">
+		    and FIND_IN_SET(ORGANIZATIONCODE,getChildList(#{organizationcode,jdbcType=VARCHAR}))   
+		</if>
+		order by ORGANIZATIONID
+	</select>
+	<!-- 获取已存在组织机构代码数量 -->
+	<select id="selectCountByCode" resultType="java.lang.Integer">
+		select
+		count(ORGANIZATIONID)
+		from SYS_ORGANIZATION
+		where ORGANIZATIONCODE =
+		#{organizationcode,jdbcType=VARCHAR}
+		and ORGANIZATIONID !=
+		#{organizationid,jdbcType=DECIMAL}
+		and STATUS = 1
+	</select>
+	
+	<delete id="deleteByPrimaryKey" parameterType="java.lang.Integer">
+		update
+		SYS_ORGANIZATION set STATUS = 0
+		where ORGANIZATIONID =
+		#{organizationid,jdbcType=DECIMAL}
+	</delete>
+	<insert id="insert" parameterType="com.ws.ssms.system.model.Organization">
+		insert into SYS_ORGANIZATION
+		(ORGANIZATIONCODE,
+		ORGANIZATIONNAME, PARENTID, STATUS, COMPACTOR
+		)
+		values (
+		#{organizationcode,jdbcType=VARCHAR},
+		#{organizationname,jdbcType=VARCHAR}, #{parentid,jdbcType=DECIMAL},
+		#{status,jdbcType=DECIMAL}, #{compactor,jdbcType=DECIMAL}
+		)
+	</insert>
+	<insert id="insertSelective" parameterType="com.ws.ssms.system.model.Organization">
+	    insert into SYS_ORGANIZATION
+		<trim prefix="(" suffix=")" suffixOverrides=",">
+			<if test="organizationcode != null">
+				ORGANIZATIONCODE,
+			</if>
+			<if test="organizationname != null">
+				ORGANIZATIONNAME,
+			</if>
+			<if test="parentid != null">
+				PARENTID,
+			</if>
+			STATUS,
+			<if test="compactor != null">
+				COMPACTOR,
+			</if>
+			COMPILATIONTIME,
+		</trim>
+		<trim prefix="values (" suffix=")" suffixOverrides=",">
+			<if test="organizationcode != null">
+				#{organizationcode,jdbcType=VARCHAR},
+			</if>
+			<if test="organizationname != null">
+				#{organizationname,jdbcType=VARCHAR},
+			</if>
+			<if test="parentid != null">
+				#{parentid,jdbcType=DECIMAL},
+			</if>
+			1,
+			<if test="compactor != null">
+				#{compactor,jdbcType=DECIMAL},
+			</if>
+			sysdate(),
+		</trim>
+	</insert>
+	<update id="updateByPrimaryKeySelective" parameterType="com.ws.ssms.system.model.Organization">
+		update SYS_ORGANIZATION
+		<set>
+			<if test="organizationcode != null">
+				ORGANIZATIONCODE = #{organizationcode,jdbcType=VARCHAR},
+			</if>
+			<if test="organizationname != null">
+				ORGANIZATIONNAME = #{organizationname,jdbcType=VARCHAR},
+			</if>
+			<if test="parentid != null">
+				PARENTID = #{parentid,jdbcType=DECIMAL},
+			</if>
+			<if test="status != null">
+				STATUS = #{status,jdbcType=DECIMAL},
+			</if>
+			<if test="compactor != null">
+				COMPACTOR = #{compactor,jdbcType=DECIMAL},
+			</if>
+		</set>
+		where ORGANIZATIONID = #{organizationid,jdbcType=DECIMAL}
+	</update>
+	<update id="updateByPrimaryKey" parameterType="com.ws.ssms.system.model.Organization">
+		update
+		SYS_ORGANIZATION
+		set ORGANIZATIONCODE =
+		#{organizationcode,jdbcType=VARCHAR},
+		ORGANIZATIONNAME =
+		#{organizationname,jdbcType=VARCHAR},
+		PARENTID =
+		#{parentid,jdbcType=DECIMAL},
+		STATUS = #{status,jdbcType=DECIMAL},
+		COMPACTOR =
+		#{compactor,jdbcType=DECIMAL}
+		where
+		ORGANIZATIONID = #{organizationid,jdbcType=DECIMAL}
+	</update>
+</mapper>

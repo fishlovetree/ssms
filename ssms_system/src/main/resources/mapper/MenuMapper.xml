@@ -1,0 +1,200 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.ws.ssms.system.mapper.MenuMapper" >
+  <resultMap id="BaseResultMap" type="com.ws.ssms.system.model.Menu" >
+    <id column="ID" property="id" jdbcType="DECIMAL" />
+    <result column="MENUNAME" property="menuname" jdbcType="VARCHAR" />
+    <result column="MENUENNAME" property="menuenname" jdbcType="VARCHAR" />
+    <result column="MENUURL" property="menuurl" jdbcType="VARCHAR" />
+    <result column="MENUORDER" property="menuorder" jdbcType="DECIMAL" />
+    <result column="SUPERID" property="superid" jdbcType="DECIMAL" />
+    <result column="MENUICON" property="menuicon" jdbcType="VARCHAR" />
+    <result column="STATUS" property="status" jdbcType="DECIMAL" />
+    <result column="MENUTYPE" property="menutype" jdbcType="DECIMAL" />
+  </resultMap>
+  <sql id="Base_Column_List" >
+    ID, MENUNAME, MENUENNAME, MENUURL, MENUORDER, SUPERID, MENUICON, STATUS, MENUTYPE
+  </sql>
+  <select id="selectByPrimaryKey" resultMap="BaseResultMap" parameterType="java.lang.Integer" >
+    select 
+    <include refid="Base_Column_List" />
+    from SYS_MENU
+    where ID = #{id,jdbcType=DECIMAL}
+  </select>  
+  <!--获取菜单集合  -->
+  <select id="selectMenuList" resultMap="BaseResultMap"  >
+    select 
+    <include refid="Base_Column_List" />
+    from SYS_MENU
+    where status = 1
+    <if test="menuType != null">
+        and menutype = #{menuType,jdbcType=DECIMAL}
+    </if>
+    order by menuorder
+  </select>
+  <!-- 分页查询菜单  -->
+  <select id="selectMenuPage" resultMap="BaseResultMap"  >
+    select 
+    <include refid="Base_Column_List" />
+    from SYS_MENU
+    where status = 1
+    <if test="menuType != null">
+        and menutype = #{menuType,jdbcType=DECIMAL}
+    </if>
+    order by menuorder
+    limit #{startindex,jdbcType=DECIMAL} , #{size,jdbcType=DECIMAL}
+  </select>
+  <!--获取菜单总数用于分页  -->
+  <select id="selectMenuCount" resultType="java.lang.Integer" >
+    select 
+    count(0)
+    from SYS_MENU
+    where status = 1
+    <if test="menuType != null">
+        and menutype = #{menuType,jdbcType=DECIMAL}
+    </if>
+  </select>
+  <!-- 通过上级菜单id查询子集菜单集合 -->
+  <select id="selectMenuChilren" resultMap="BaseResultMap">
+    select 
+    <include refid="Base_Column_List" />
+    from SYS_MENU
+    where STATUS=1
+    <if test="superId != null">
+        and SUPERID = #{superId,jdbcType=DECIMAL}
+    </if>
+    <if test="menuType != null">
+        and menutype = #{menuType,jdbcType=DECIMAL}
+    </if>
+    order by menuorder
+  </select>
+  
+  <!-- 查询菜单名字数量 -->
+  <select id="selectMenuCountByName" resultType="java.lang.Integer" >
+    select 
+    count(ID)
+    from SYS_MENU where MENUNAME = #{menuName,jdbcType=VARCHAR}
+	and ID != #{menuId,jdbcType=DECIMAL} and STATUS = 1 and MENUTYPE = #{menuType,jdbcType=DECIMAL}
+  </select>
+  
+  <!--根据账号获取菜单集合  -->
+  <select id="selectUserMenuList" resultMap="BaseResultMap"  >
+    SELECT DISTINCT m.id,m.superid,m.menuname,m.menuenname,m.menuurl,
+      m.menuicon,m.menuorder,m.status,m.menutype FROM sys_userrole ur
+      LEFT JOIN sys_rolefun rf ON rf.roleid = ur.roleid
+      LEFT JOIN sys_role r ON r.id = rf.roleid
+      LEFT JOIN sys_menu m ON m.id = rf.menuid
+      WHERE ur.userid=#{userid,jdbcType=DECIMAL} AND r.status=1 AND m.status=1 
+      ORDER BY m.superid    
+  </select>
+
+  <delete id="deleteByPrimaryKey" parameterType="java.lang.Integer" >
+    update SYS_MENU set status = 0
+    where ID = #{id,jdbcType=DECIMAL}
+  </delete>
+  <insert id="insert" parameterType="com.ws.ssms.system.model.Menu" >
+    insert into SYS_MENU (MENUNAME, MENUENNAME, 
+      MENUURL, MENUORDER, SUPERID, 
+      MENUICON, STATUS,MENUTYPE)
+    values (#{menuname,jdbcType=VARCHAR}, #{menuenname,jdbcType=VARCHAR}, 
+      #{menuurl,jdbcType=VARCHAR}, #{menuorder,jdbcType=DECIMAL}, #{superid,jdbcType=DECIMAL}, 
+      #{menuicon,jdbcType=VARCHAR}, #{status,jdbcType=DECIMAL},#{menutype,jdbcType=DECIMAL})
+  </insert>
+  <insert id="insertSelective" parameterType="com.ws.ssms.system.model.Menu" >
+    insert into SYS_MENU
+    <trim prefix="(" suffix=")" suffixOverrides="," >
+      <if test="menuname != null" >
+        MENUNAME,
+      </if>
+      <if test="menuenname != null" >
+        MENUENNAME,
+      </if>
+      <if test="menuurl != null" >
+        MENUURL,
+      </if>
+      <if test="menuorder != null" >
+        MENUORDER,
+      </if>
+      <if test="superid != null" >
+        SUPERID,
+      </if>
+      <if test="menuicon != null" >
+        MENUICON,
+      </if>
+      <if test="status != null" >
+        STATUS,
+      </if>
+      <if test="menutype != null" >
+        MENUTYPE,
+      </if>
+    </trim>
+    <trim prefix="values (" suffix=")" suffixOverrides="," >
+      <if test="menuname != null" >
+        #{menuname,jdbcType=VARCHAR},
+      </if>
+      <if test="menuenname != null" >
+        #{menuenname,jdbcType=VARCHAR},
+      </if>
+      <if test="menuurl != null" >
+        #{menuurl,jdbcType=VARCHAR},
+      </if>
+      <if test="menuorder != null" >
+        #{menuorder,jdbcType=DECIMAL},
+      </if>
+      <if test="superid != null" >
+        #{superid,jdbcType=DECIMAL},
+      </if>
+      <if test="menuicon != null" >
+        #{menuicon,jdbcType=VARCHAR},
+      </if>
+      <if test="status != null" >
+        #{status,jdbcType=DECIMAL},
+      </if>
+      <if test="menutype != null" >
+        #{menutype,jdbcType=DECIMAL},
+      </if>
+    </trim>
+  </insert>
+  <update id="updateByPrimaryKeySelective" parameterType="com.ws.ssms.system.model.Menu" >
+    update SYS_MENU
+    <set >
+      <if test="menuname != null" >
+        MENUNAME = #{menuname,jdbcType=VARCHAR},
+      </if>
+      <if test="menuenname != null" >
+        MENUENNAME = #{menuenname,jdbcType=VARCHAR},
+      </if>
+      <if test="menuurl != null" >
+        MENUURL = #{menuurl,jdbcType=VARCHAR},
+      </if>
+      <if test="menuorder != null" >
+        MENUORDER = #{menuorder,jdbcType=DECIMAL},
+      </if>
+      <if test="superid != null" >
+        SUPERID = #{superid,jdbcType=DECIMAL},
+      </if>
+      <if test="menuicon != null" >
+        MENUICON = #{menuicon,jdbcType=VARCHAR},
+      </if>
+      <if test="status != null" >
+        STATUS = #{status,jdbcType=DECIMAL},
+      </if>
+      <if test="menutype != null" >
+        MENUTYPE = #{menutype,jdbcType=DECIMAL},
+      </if>
+    </set>
+    where ID = #{id,jdbcType=DECIMAL}
+  </update>
+  <update id="updateByPrimaryKey" parameterType="com.ws.ssms.system.model.Menu" >
+    update SYS_MENU
+    set MENUNAME = #{menuname,jdbcType=VARCHAR},
+      MENUENNAME = #{menuenname,jdbcType=VARCHAR},
+      MENUURL = #{menuurl,jdbcType=VARCHAR},
+      MENUORDER = #{menuorder,jdbcType=DECIMAL},
+      SUPERID = #{superid,jdbcType=DECIMAL},
+      MENUICON = #{menuicon,jdbcType=VARCHAR},
+      STATUS = #{status,jdbcType=DECIMAL},
+      MENUTYPE = #{menutype,jdbcType=DECIMAL}
+    where ID = #{id,jdbcType=DECIMAL}
+  </update>
+</mapper>

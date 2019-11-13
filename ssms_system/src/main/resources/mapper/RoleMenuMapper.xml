@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.ws.ssms.system.mapper.RoleMenuMapper" >
+  <resultMap id="BaseResultMap" type="com.ws.ssms.system.model.RoleMenuKey" >
+    <id column="ROLEID" property="roleid" jdbcType="DECIMAL" />
+    <id column="MENUID" property="menuid" jdbcType="DECIMAL" />
+  </resultMap>
+  <delete id="deleteByPrimaryKey" parameterType="com.ws.ssms.system.model.RoleMenuKey" >
+    delete from SYS_ROLEFUN
+    where ROLEID = #{roleid,jdbcType=DECIMAL}
+      and MENUID = #{menuid,jdbcType=DECIMAL}
+  </delete>
+  
+  <!-- 删除角色菜单 -->
+  <delete id="deleteByRoleId" >
+    delete from SYS_ROLEFUN where ROLEID= #{roleid,jdbcType=DECIMAL}
+  </delete>
+	
+  <insert id="insert" parameterType="com.ws.ssms.system.model.RoleMenuKey" >
+    insert into SYS_ROLEFUN (ROLEID, MENUID)
+    values (#{roleid,jdbcType=DECIMAL}, #{menuid,jdbcType=DECIMAL})
+  </insert>
+  
+  <insert id="insertSelective" parameterType="com.ws.ssms.system.model.RoleMenuKey" >
+    insert into SYS_ROLEFUN
+    <trim prefix="(" suffix=")" suffixOverrides="," >
+      <if test="roleid != null" >
+        ROLEID,
+      </if>
+      <if test="menuid != null" >
+        MENUID,
+      </if>
+    </trim>
+    <trim prefix="values (" suffix=")" suffixOverrides="," >
+      <if test="roleid != null" >
+        #{roleid,jdbcType=DECIMAL},
+      </if>
+      <if test="menuid != null" >
+        #{menuid,jdbcType=DECIMAL},
+      </if>
+    </trim>
+  </insert>
+  
+  <!-- 批量插入-->
+  <insert id="insertRoleMenu" useGeneratedKeys="false">
+	insert into SYS_ROLEFUN (ROLEID, MENUID) 
+		<foreach collection="menulist" index="index" item="item" separator="union all">
+		 (
+			SELECT 
+			#{roleid,jdbcType=INTEGER} ROLEID,
+			#{item,jdbcType=INTEGER} MENUID
+			FROM dual
+		)
+		</foreach>
+  </insert>
+  
+  <!--通过角色id查询拥有的菜单  -->
+  <select id="selectRoleMenu" resultType="com.ws.ssms.system.model.Menu" parameterType="java.lang.Integer" >
+    select m.*
+    from SYS_ROLEFUN r
+    left join SYS_MENU m on m.id = r.menuid
+    where r.ROLEID = #{roleid,jdbcType=DECIMAL}
+  </select>
+</mapper>

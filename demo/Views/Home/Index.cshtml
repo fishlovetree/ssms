@@ -1,0 +1,280 @@
+﻿@{
+    ViewBag.Title = "Home Page";
+}
+<script type="text/javascript" src="~/Scripts/threeJs/three.js"></script>
+<script type="text/javascript" src="~/Scripts/threeJs/controls/OrbitControls.js"></script>
+<script type="text/javascript" src="~/Scripts/threeJs/loaders/ColladaLoader2.js"></script>
+<script type="text/javascript" src="~/Scripts/threeJs/extras/Earcut.js"></script>
+<script type="text/javascript" src="~/Scripts/threeJs/controls/OrbitControls.js"></script>
+<script type="text/javascript" src="~/Scripts/threeJs/ThreeBSP.js"></script>
+<script type="text/javascript" src="~/Scripts/threeJs/extras/tween.min.js"></script>
+<script type="text/javascript" src="~/Scripts/threeJs/libs/ui.js"></script>
+<script type="text/javascript" src="~/Scripts/threeJs/libs/ui.three.js"></script>
+<script type="text/javascript" src="~/Scripts/threeJs/controls/DragControls.js"></script>
+<script type="text/javascript" src="~/Scripts/threeJs/controls/TransformControls.js"></script>
+<script type="text/javascript">
+    var renderer, scene, camera, labelRenderer;
+    var raycaster;
+    var mouse;
+    var controls;
+    var container;
+    var group;
+
+    function init() {
+        renderer = new THREE.WebGLRenderer({
+            antialias: true
+        });
+        renderer.setClearColor(0xF1F2F7);
+        renderer.setPixelRatio( window.devicePixelRatio );
+        container = document.getElementById("container");
+        renderer.setSize(container.clientWidth, container.clientHeight + 48);
+        scene = new THREE.Scene();
+        scene.background = new THREE.Color( 0xF1F2F7 );
+        camera = new THREE.PerspectiveCamera(45, container.clientWidth / (container.clientHeight + 48), 0.1, 10000);
+        camera.lookAt(new THREE.Vector3(0, 0, 0));
+        camera.position.set(0, 400, 600);
+        // 光线的照射
+        var ambiColor = "#f2f2f2";
+        var spotLight = new THREE.SpotLight(ambiColor);
+        spotLight.position.set( -100, 100, -100);
+        scene.add(spotLight);
+        var spotLight2 = new THREE.SpotLight(ambiColor);
+        spotLight2.position.set( 100, 100, 150);
+        scene.add(spotLight2);
+
+        controls = new THREE.OrbitControls( camera );//用户交互
+        //设置相机的角度范围
+        controls.maxPolarAngle = Math.PI * 0.5;
+        //设置相机距离原点的最远距离
+        controls.minDistance = 0;
+        //设置相机距离原点的最远距离
+        controls.maxDistance = 2000;
+        controls.maxDistance = 2000;
+
+        raycaster = new THREE.Raycaster();
+        mouse = new THREE.Vector2();
+        document.body.appendChild(renderer.domElement);
+        document.addEventListener('click', onDocumentMouseClick, false);
+
+        group = new THREE.Object3D();
+        scene.add(group);
+
+        var helper = new THREE.GridHelper(1200, 50, 0xCD3700, 0x4A4A4A);
+        scene.add(helper);
+
+        initDragControls();
+
+        render();
+    }
+
+    var selectedObj;
+    /*
+     * 鼠标单击事件
+     */
+    function onDocumentMouseClick(event) {
+        event.preventDefault();
+        var intersects = getDeviceIntersects(event.offsetX, event.offsetY);
+        if (intersects.length > 0) {
+            var object = intersects[0].object;
+            selectedObj = object;
+        } else {
+            selectedObj = undefined;
+        }
+    }
+
+    /*
+ *   鼠标平移事件
+ *   */
+    function onDocumentMouseMove(event) {
+        event.preventDefault();
+        if (selectedObj) {
+            var mouse = convertTo3DCoordinate(event.clientX, event.clientY);
+            selectedObj.position.copy(mouse);
+        }
+        else {
+            var intersects = getDeviceIntersects(event.offsetX, event.offsetY);
+            if (intersects.length > 0) {
+                var selected = intersects[0];	//取第一个物体
+                if (selected.object instanceof THREE.Sprite) {
+                    $(container).css('cursor', 'pointer');
+                } else {
+                    $(container).css('cursor', 'default');
+                }
+            } else {
+                $(container).css('cursor', 'default');
+            }
+        }
+    }
+
+    /*
+     * 鼠标双击事件
+     */
+    function onDocumentMouseDblClick(event) {
+        event.preventDefault();
+        var intersects = getDeviceIntersects(event.offsetX, event.offsetY);
+        if(intersects.length > 0){
+            var object = intersects[0].object;
+            selectedObj = object;
+        }else{
+            selectedObj = undefined;
+        }
+    }
+
+    function convertTo3DCoordinate(clientX, clientY) {
+        var mv = new THREE.Vector3(
+            (clientX / container.innerWidth) * 2 - 1,
+            -(clientY / container.innerHeight) * 2 + 1,
+            0.5);
+        mv.unproject(this.camera);
+        return mv;
+    }
+
+    /*
+     *	获取鼠标选中的设备和视频
+     *	param {number} x 屏幕坐标X
+     *  param {number} y 屏幕坐标Y
+     *	return {THREE.Sprite || undefined} intersects 设备或视频的Sprite
+     */
+    function getDeviceIntersects(x, y) {
+        var vector = new THREE.Vector3();//三维坐标对象
+        vector.set(
+                (x / container.clientWidth) * 2 - 1,
+                -(y / container.clientHeight) * 2 + 1,
+                0.5);
+        vector.unproject(camera);
+        var raycaster = new THREE.Raycaster(camera.position, vector.sub(camera.position).normalize());
+        var intersects = raycaster.intersectObjects([group], true);
+        return intersects;
+    }
+
+    function render() {
+        controls.update();
+        TWEEN.update();
+        requestAnimationFrame(render);
+        renderer.render(scene, camera);
+    }
+
+    // 添加拖拽控件
+    function initDragControls() {
+        // 添加平移控件
+        var transformControls = new THREE.TransformControls(camera, renderer.domElement);
+        scene.add(transformControls);
+
+        // 过滤不是 Mesh 的物体,例如辅助网格对象
+        var objects = [];
+        for (let i = 0; i < group.children.length; i++) {
+            if (group.children[i].isMesh) {
+                objects.push(group.children[i]);
+            }
+        }
+        // 初始化拖拽控件
+        var dragControls = new THREE.DragControls(objects, camera, renderer.domElement);
+
+        // 鼠标略过事件
+        dragControls.addEventListener('hoveron', function (event) {
+            // 让变换控件对象和选中的对象绑定
+            transformControls.attach(event.object);
+        });
+        // 开始拖拽
+        dragControls.addEventListener('dragstart', function (event) {
+            controls.enabled = false;
+        });
+        // 拖拽结束
+        dragControls.addEventListener('dragend', function (event) {
+            controls.enabled = true;
+        });
+    }
+
+    $(function () {
+        $("#container").css('height', window.innerHeight - 51);
+        init();
+
+        $(".box-btn").click(function (e) {
+            var geometry = new THREE.BoxGeometry(100, 100, 100);
+            var materials = new THREE.MeshLambertMaterial({ color: 0x000000 });
+            var mesh = new THREE.Mesh(geometry, materials);
+            mesh.position.x = 0;
+            mesh.position.y = 0;
+            mesh.position.z = 0;
+            mesh.userData.type = 'box';
+            group.add(mesh);
+        })
+
+        $(".cylinder-btn").click(function (e) {
+            geometry = new THREE.CylinderGeometry(4, 4, 4, 64);
+            var cube = new THREE.Mesh(geometry);
+            cube.position.x = 10
+            cube.position.y = 0.55;
+            cube.position.z = 0;
+            cube.rotation.x = Math.PI / 2;
+            cube.userData.type = 'cylinder';
+            group.add(cube);
+        })
+	})
+
+</script>
+<div style="width:100%;height:100%;position:absolute;left:0;top:0;" id="container">
+    <nav class="navbar navbar-inverse navbar-fixed-top">
+        <div class="container-fluid">
+            <ul class="nav navbar-nav">
+                <li class="dropdown li-menu-file">
+                    <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">文件<span class="caret"></span></a>
+                    <ul class="dropdown-menu">
+                        <li><a href="#" class="new-btn">新建</a></li>
+                        <li><a href="#" class="save-btn">保存(ctrl+s)</a></li>
+                        <li role="separator" class="divider"></li>
+                        <li><a href="#" class="import-btn">导入</a></li>
+                        <li><a href="#" class="export-btn">导出</a></li>
+                    </ul>
+                </li>
+                <li class="dropdown li-menu-edit">
+                    <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">编辑<span class="caret"></span></a>
+                    <ul class="dropdown-menu">
+                        <li><a href="#" class="undo-btn">撤销(ctrl+z)</a></li>
+                        <li><a href="#" class="redo-btn">重做(ctrl+y)</a></li>
+                        <li role="separator" class="divider"></li>
+                        <li><a href="#" class="cat-btn">剪切(ctrl+x)</a></li>
+                        <li><a href="#" class="copy-btn">复制(ctrl+c)</a></li>
+                        <li><a href="#" class="paste-btn">粘贴(ctrl+v)</a></li>
+                        <li role="separator" class="divider"></li>
+                        <li><a href="#" class="paste-btn">删除(ctrl+v)</a></li>
+                        <li><a href="#" class="select-all-btn">全选(ctrl+a)</a></li>
+                    </ul>
+                </li>
+                <li class="dropdown li-menu-shape">
+                    <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">形状<span class="caret"></span></a>
+                    <ul class="dropdown-menu">
+                        <li><a href="#" class="plane-btn">平面</a></li>
+                        <li><a href="#" class="circle-btn">圆</a></li>
+                        <li role="separator" class="divider"></li>
+                        <li><a href="#" class="box-btn">长方体</a></li>
+                        <li><a href="#" class="sphere-btn">球</a></li>
+                        <li><a href="#" class="cylinder-btn">圆柱体</a></li>
+                        <li><a href="#" class="tube-btn">管线</a></li>
+                        <li role="separator" class="divider"></li>
+                        <li><a href="#" class="text-btn">文字</a></li>
+                    </ul>
+                </li>
+                <li class="dropdown li-menu-texture">
+                    <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">材质<span class="caret"></span></a>
+                    <ul class="dropdown-menu">
+                        <li><a href="#" class="color-btn">颜色</a></li>
+                        <li><a href="#" class="picture-btn">图片</a></li>
+                        <li role="separator" class="divider"></li>
+                        <li><a href="#" class="canvas-btn">自定义</a></li>
+                    </ul>
+                </li>
+            </ul>
+            <ul class="nav navbar-nav navbar-right">
+                <li class="dropdown">
+                    <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false"> signsing <span class="caret"></span></a>
+                    <ul class="dropdown-menu">
+                        <li><a href="/manage/user/editinfo">基础设置</a></li>
+                        <li><a href="/manage/user/updatepwd">修改密码</a></li>
+                        <li><a href="javascript:void(0)" class="quit">退出</a></li>
+                    </ul>
+                </li>
+            </ul>
+        </div>
+    </nav>
+</div>

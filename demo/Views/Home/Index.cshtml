@@ -62,8 +62,11 @@
         var helper = new THREE.GridHelper(1200, 50, 0xCD3700, 0x4A4A4A);
         scene.add(helper);
 
+        var mesh1 = new THREE.MeshBasicMaterial({ color: 0xff0000, side: THREE.DoubleSide })
+        var mesh2 = new THREE.MeshBasicMaterial({ color: 0x00ff00, map: new THREE.TextureLoader().load("Images/heroAccent.png"), side: THREE.DoubleSide })
+        var mesh3 = new THREE.MeshBasicMaterial({ color: 0x0000ff, side: THREE.DoubleSide })
         var cubeGeometry = new THREE.BoxGeometry(100, 100, 100);
-        var cubeMaterial = new THREE.MeshLambertMaterial({ color: 0x9370DB });
+        var cubeMaterial = new THREE.MeshFaceMaterial([mesh1, mesh1, mesh2, mesh2, mesh3, mesh3, mesh1, mesh1, mesh2, mesh2, mesh3, mesh3]);
         var cube = new THREE.Mesh(cubeGeometry, cubeMaterial);
         cube.position.y = 50;
         cube.name = "cube";
@@ -87,6 +90,11 @@
             selectedObj = object;
             transformControls.setMode('scale');
             transformControls.attach(object);
+
+            //更改面的颜色
+            //object.material[intersects[0].face.materialIndex].color = new THREE.Color(0x6600ff);
+            object.material[intersects[0].face.materialIndex].map = new THREE.TextureLoader().load("Images/heroAccent.png");
+            object.material[intersects[0].face.materialIndex].side = THREE.DoubleSide;
         } else {
             selectedObj = undefined;
         }

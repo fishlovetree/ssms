@@ -59,10 +59,10 @@
         document.body.appendChild(renderer.domElement);
         document.addEventListener('click', onDocumentMouseClick, false);
 
-        //var helper = new THREE.GridHelper(1200, 50, 0xCD3700, 0x4A4A4A);
-        //scene.add(helper);
+        var helper = new THREE.GridHelper(1200, 50, 0xCD3700, 0x4A4A4A);
+        scene.add(helper);
 
-        var mesh1 = new THREE.MeshBasicMaterial({ color: 0xff0000, side: THREE.DoubleSide })
+        /*var mesh1 = new THREE.MeshBasicMaterial({ color: 0xff0000, side: THREE.DoubleSide })
         var mesh2 = new THREE.MeshBasicMaterial({ color: 0x00ff00, map: new THREE.TextureLoader().load("Images/heroAccent.png"), side: THREE.DoubleSide })
         var mesh3 = new THREE.MeshBasicMaterial({ color: 0x0000ff, side: THREE.DoubleSide })
         var cubeGeometry = new THREE.BoxGeometry(100, 100, 100);
@@ -88,7 +88,7 @@
         cylinder.userData.type = 'cylinder';
         console.log(cylinder.children)
         scene.add(cylinder);
-        objects.push(cylinder);
+        objects.push(cylinder);*/
 
         initDragControls();
 
@@ -105,15 +105,17 @@
         if (intersects.length > 0) {
             var object = intersects[0].object;
             selectedObj = object;
-            transformControls.setMode('scale');
             transformControls.attach(object);
 
             //更改面的颜色
             //object.material[intersects[0].face.materialIndex].color = new THREE.Color(0x6600ff);
-            object.material[intersects[0].face.materialIndex] = new THREE.MeshBasicMaterial({ color: 0x00ff00, map: new THREE.TextureLoader().load("Images/heroAccent.png"), side: THREE.DoubleSide });
-        } else {
-            selectedObj = undefined;
-        }
+            //object.material[intersects[0].face.materialIndex] = new THREE.MeshBasicMaterial({ color: 0x00ff00, map: new THREE.TextureLoader().load("Images/heroAccent.png"), side: THREE.DoubleSide });
+            console.log(object.material[intersects[0].face.materialIndex]);
+            console.log(intersects[0].face.materialIndex);
+            console.log(object);
+            //object.material[intersects[0].face.materialIndex].color = new THREE.Color(0x6600ff);
+            object.material[intersects[0].face.materialIndex].vertexColors = 1;
+        } 
     }
 
     /*
@@ -193,6 +195,7 @@
     function initDragControls() {
         // 添加平移控件
         transformControls = new THREE.TransformControls(camera, renderer.domElement);
+        transformControls.setMode('translate');
         scene.add(transformControls);
 
         // 初始化拖拽控件
@@ -214,19 +217,22 @@
     }
 
     $(function () {
-        $("#container").css('height', window.innerHeight - 51);
         init();
 
         $(".box-btn").click(function (e) {
-            var geometry = new THREE.BoxGeometry(100, 100, 100);
-            var materials = new THREE.MeshLambertMaterial({ color: 0x000000 });
-            var mesh = new THREE.Mesh(geometry, materials);
-            mesh.position.x = 0;
-            mesh.position.y = 0;
-            mesh.position.z = 0;
-            mesh.userData.type = 'box';
-            scene.add(mesh);
-            objects.push(mesh);
+            var mesh1 = new THREE.MeshBasicMaterial({ color: 0x000000, side: THREE.DoubleSide })
+            var mesh2 = new THREE.MeshBasicMaterial({ color: 0x000000, side: THREE.DoubleSide })
+            var mesh3 = new THREE.MeshBasicMaterial({ color: 0x000000, side: THREE.DoubleSide })
+            var mesh4 = new THREE.MeshBasicMaterial({ color: 0x000000, side: THREE.DoubleSide })
+            var mesh5 = new THREE.MeshBasicMaterial({ color: 0x000000, side: THREE.DoubleSide })
+            var mesh6 = new THREE.MeshBasicMaterial({ color: 0x000000, side: THREE.DoubleSide })
+            var cubeGeometry = new THREE.BoxGeometry(100, 100, 100);
+            var cubeMaterial = new THREE.MeshFaceMaterial([mesh1, mesh2, mesh3, mesh4, mesh5, mesh6]);
+            var cube = new THREE.Mesh(cubeGeometry, cubeMaterial);
+            cube.position.y = 50;
+            cube.name = "box";
+            scene.add(cube);
+            objects.push(cube);
         })
 
         $(".cylinder-btn").click(function (e) {
@@ -239,6 +245,37 @@
             cube.userData.type = 'cylinder';
             scene.add(cube);
             objects.push(cube);
+        })
+
+        $(".trans-btn").find("i").show();
+        $(".scale-btn").find("i").hide();
+        $(".rotate-btn").find("i").hide();
+        $(".trans-btn").click(function (e) {
+            $(".trans-btn").find("i").show();
+            $(".scale-btn").find("i").hide();
+            $(".rotate-btn").find("i").hide();
+            transformControls.setMode('translate');
+            if (selectedObj) {
+                transformControls.attach(selectedObj);
+            }
+        })
+        $(".scale-btn").click(function (e) {
+            $(".trans-btn").find("i").hide();
+            $(".scale-btn").find("i").show();
+            $(".rotate-btn").find("i").hide();
+            transformControls.setMode('scale');
+            if (selectedObj) {
+                transformControls.attach(selectedObj);
+            }
+        })
+        $(".rotate-btn").click(function (e) {
+            $(".trans-btn").find("i").hide();
+            $(".scale-btn").find("i").hide();
+            $(".rotate-btn").find("i").show();
+            transformControls.setMode('rotate');
+            if (selectedObj) {
+                transformControls.attach(selectedObj);
+            }
         })
 	})
 
@@ -276,7 +313,7 @@
                     <li><a href="#" class="plane-btn">平面</a></li>
                     <li><a href="#" class="circle-btn">圆</a></li>
                     <li role="separator" class="divider"></li>
-                    <li><a href="#" class="box-btn">长方体</a></li>
+                    <li><a href="#" class="box-btn">立方体</a></li>
                     <li><a href="#" class="sphere-btn">球</a></li>
                     <li><a href="#" class="cylinder-btn">圆柱体</a></li>
                     <li><a href="#" class="tube-btn">管线</a></li>
@@ -284,66 +321,12 @@
                     <li><a href="#" class="text-btn">文字</a></li>
                 </ul>
             </li>
-            <li class="dropdown li-menu-texture">
-                <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">材质<span class="caret"></span></a>
+            <li class="dropdown li-menu-transform">
+                <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">控制<span class="caret"></span></a>
                 <ul class="dropdown-menu">
-                    <li><a href="#" class="color-btn">颜色</a></li>
-                    <li><a href="#" class="picture-btn">图片</a></li>
-                    <li role="separator" class="divider"></li>
-                    <li><a href="#" class="canvas-btn">自定义</a></li>
-                </ul>
-            </li>
-        </ul>
-        <ul class="nav navbar-nav navbar-right">
-            <li class="dropdown">
-                <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false"> signsing <span class="caret"></span></a>
-                <ul class="dropdown-menu">
-                    <li><a href="/manage/user/editinfo">基础设置</a></li>
-                    <li><a href="/manage/user/updatepwd">修改密码</a></li>
-                    <li><a href="javascript:void(0)" class="quit">退出</a></li>
-                </ul>
-            </li>
-        </ul>
-    </div>
-</nav><nav class="navbar navbar-inverse navbar-fixed-top">
-    <div class="container-fluid">
-        <ul class="nav navbar-nav">
-            <li class="dropdown li-menu-file">
-                <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">文件<span class="caret"></span></a>
-                <ul class="dropdown-menu">
-                    <li><a href="#" class="new-btn">新建</a></li>
-                    <li><a href="#" class="save-btn">保存(ctrl+s)</a></li>
-                    <li role="separator" class="divider"></li>
-                    <li><a href="#" class="import-btn">导入</a></li>
-                    <li><a href="#" class="export-btn">导出</a></li>
-                </ul>
-            </li>
-            <li class="dropdown li-menu-edit">
-                <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">编辑<span class="caret"></span></a>
-                <ul class="dropdown-menu">
-                    <li><a href="#" class="undo-btn">撤销(ctrl+z)</a></li>
-                    <li><a href="#" class="redo-btn">重做(ctrl+y)</a></li>
-                    <li role="separator" class="divider"></li>
-                    <li><a href="#" class="cat-btn">剪切(ctrl+x)</a></li>
-                    <li><a href="#" class="copy-btn">复制(ctrl+c)</a></li>
-                    <li><a href="#" class="paste-btn">粘贴(ctrl+v)</a></li>
-                    <li role="separator" class="divider"></li>
-                    <li><a href="#" class="paste-btn">删除(ctrl+v)</a></li>
-                    <li><a href="#" class="select-all-btn">全选(ctrl+a)</a></li>
-                </ul>
-            </li>
-            <li class="dropdown li-menu-shape">
-                <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">形状<span class="caret"></span></a>
-                <ul class="dropdown-menu">
-                    <li><a href="#" class="plane-btn">平面</a></li>
-                    <li><a href="#" class="circle-btn">圆</a></li>
-                    <li role="separator" class="divider"></li>
-                    <li><a href="#" class="box-btn">长方体</a></li>
-                    <li><a href="#" class="sphere-btn">球</a></li>
-                    <li><a href="#" class="cylinder-btn">圆柱体</a></li>
-                    <li><a href="#" class="tube-btn">管线</a></li>
-                    <li role="separator" class="divider"></li>
-                    <li><a href="#" class="text-btn">文字</a></li>
+                    <li><a href="#" class="trans-btn">移动<i style="float:right;padding-top:2px" class="icon-ok"></i></a></li>
+                    <li><a href="#" class="scale-btn">缩放<i style="float:right;padding-top:2px" class="icon-ok"></i></a></li>
+                    <li><a href="#" class="rotate-btn">旋转<i style="float:right;padding-top:2px" class="icon-ok"></i></a></li>
                 </ul>
             </li>
             <li class="dropdown li-menu-texture">

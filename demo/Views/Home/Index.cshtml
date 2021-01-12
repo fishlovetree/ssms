@@ -21,6 +21,9 @@
     var transformControls;
     var container;
     var objects = [];
+    var selectedObject;
+    var selectedFaceIndex;
+    var materialMap;
 
     function init() {
         renderer = new THREE.WebGLRenderer({
@@ -95,26 +98,34 @@
         render();
     }
 
-    var selectedObj;
     /*
      * 鼠标单击事件
      */
     function onDocumentMouseClick(event) {
-        event.preventDefault();
+        //event.preventDefault();
         var intersects = getDeviceIntersects(event.offsetX, event.offsetY);
         if (intersects.length > 0) {
             var object = intersects[0].object;
-            selectedObj = object;
+            selectedObject = object;
             transformControls.attach(object);
 
+            for (var i = 0; i < object.material.length; i++) {
+                var material = object.material[i];
+                if (material.userData.selected) {
+                    material.userData.selected = undefined;
+                    material.color = material.userData.color;
+                    material.userData.color = undefined;
+                    material.wireframe = false;
+                }
+            }
+            selectedFaceIndex = intersects[0].face.materialIndex;
+            selectedObject.material[selectedFaceIndex].userData.selected = true;
+            selectedObject.material[selectedFaceIndex].userData.color = selectedObject.material[selectedFaceIndex].color;
+            selectedObject.material[selectedFaceIndex].color = new THREE.Color(0xff9900);
+            selectedObject.material[selectedFaceIndex].wireframe = true;
             //更改面的颜色
             //object.material[intersects[0].face.materialIndex].color = new THREE.Color(0x6600ff);
             //object.material[intersects[0].face.materialIndex] = new THREE.MeshBasicMaterial({ color: 0x00ff00, map: new THREE.TextureLoader().load("Images/heroAccent.png"), side: THREE.DoubleSide });
-            console.log(object.material[intersects[0].face.materialIndex]);
-            console.log(intersects[0].face.materialIndex);
-            console.log(object);
-            //object.material[intersects[0].face.materialIndex].color = new THREE.Color(0x6600ff);
-            object.material[intersects[0].face.materialIndex].vertexColors = 1;
         } 
     }
 
@@ -216,6 +227,26 @@
         });*/
     }
 
+    function changeColor() {
+        var color = parseInt($(".Color").val().substr(1), 16);
+        if (selectedObject !== undefined && selectedFaceIndex !== undefined) {
+            selectedObject.material[selectedFaceIndex].userData.selected = true;
+            selectedObject.material[selectedFaceIndex].userData.color = new THREE.Color(color);
+            selectedObject.material[selectedFaceIndex].color = new THREE.Color(color);
+            selectedObject.material[selectedFaceIndex].wireframe = false;
+        }
+    }
+
+    function changeMap() {
+        console.log(materialMap);
+        var material = new THREE.MeshBasicMaterial({ color: 0x00ff00, map: materialMap.texture, side: THREE.DoubleSide });
+        if (selectedObject !== undefined && selectedFaceIndex !== undefined) {
+            selectedObject.material[selectedFaceIndex] = new THREE.MeshBasicMaterial({ map: materialMap.texture, side: THREE.DoubleSide });
+            selectedObject.material[selectedFaceIndex].userData.selected = true;
+            selectedObject.material[selectedFaceIndex].wireframe = false;
+        }
+    }
+
     $(function () {
         init();
 
@@ -277,6 +308,9 @@
                 transformControls.attach(selectedObj);
             }
         })
+
+        materialMap = new UI.Texture().onChange(changeMap);
+        $("#toolDiv").append($(materialMap.dom));
 	})
 
 </script>
@@ -329,14 +363,21 @@
                     <li><a href="#" class="rotate-btn">旋转<i style="float:right;padding-top:2px" class="icon-ok"></i></a></li>
                 </ul>
             </li>
-            <li class="dropdown li-menu-texture">
+            <!--<li class="dropdown li-menu-texture">
                 <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">材质<span class="caret"></span></a>
                 <ul class="dropdown-menu">
-                    <li><a href="#" class="color-btn">颜色</a></li>
+                    <li><a href="#" class="color-btn">颜色<input class="Color" type="color" style="width: 64px; height: 25px; border: 0px; padding-bottom: 3px; background-color: transparent;float: right" value="#000000" onchange="changeColor()"></a></li>
                     <li><a href="#" class="picture-btn">图片</a></li>
                     <li role="separator" class="divider"></li>
                     <li><a href="#" class="canvas-btn">自定义</a></li>
                 </ul>
+            </li>-->
+            <li class="li-menu-texture">
+                <div style="color:#fff;padding-top:14px" id="toolDiv">
+                    <span>颜色</span>
+                    <input class="Color" type="color" style="width: 64px; height: 25px; border: 0px; padding-bottom: 3px; background-color: transparent;" value="#ffffff" onchange="changeColor()">
+                    <span>纹理</span>
+                </div>
             </li>
         </ul>
         <ul class="nav navbar-nav navbar-right">

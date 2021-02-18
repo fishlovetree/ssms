@@ -12,6 +12,8 @@
 <script type="text/javascript" src="~/Scripts/threeJs/controls/TrackballControls.js"></script>
 <script type="text/javascript" src="~/Scripts/threeJs/controls/DragControls.js"></script>
 <script type="text/javascript" src="~/Scripts/threeJs/controls/TransformControls.js"></script>
+<script type="text/javascript" src="~/Scripts/threeJs/exporters/GLTFExporter.js"></script>
+<script type="text/javascript" src="~/Scripts/threeJs/loaders/GLTFLoader.js"></script>
 <script type="text/javascript">
     var renderer, scene, camera, labelRenderer;
     var raycaster;
@@ -19,11 +21,13 @@
     var controls;
     var trackballControls;
     var transformControls;
-    var container;
     var objects = [];
     var selectedObject;
     var selectedFaceIndex;
     var materialMap;
+    var group;
+    var selectedGroup;
+    var copyObjects = [];
 
     function init() {
         renderer = new THREE.WebGLRenderer({
@@ -31,7 +35,6 @@
         });
         renderer.setClearColor(0xF1F2F7);
         renderer.setPixelRatio( window.devicePixelRatio );
-        container = document.getElementById("container");
         renderer.setSize(window.innerWidth, window.innerHeight);
         scene = new THREE.Scene();
         scene.background = new THREE.Color( 0xF1F2F7 );
@@ -47,7 +50,9 @@
         spotLight2.position.set( 100, 100, 150);
         scene.add(spotLight2);
 
-        controls = new THREE.OrbitControls(camera);//用户交互
+        controls = new THREE.OrbitControls(camera, renderer.domElement);//用户交互
+        controls.update();
+        //controls.addEventListener('change', render);
 
         //设置相机的角度范围
         controls.maxPolarAngle = Math.PI * 0.5;
@@ -93,9 +98,153 @@
         scene.add(cylinder);
         objects.push(cylinder);*/
 
-        initDragControls();
+        // 添加平移控件
+        transformControls = new THREE.TransformControls(camera, renderer.domElement);
+        transformControls.setMode('translate');
+        //transformControls.addEventListener('change', render);
+        transformControls.addEventListener('dragging-changed', function (event) {
+            controls.enabled = ! event.value;
+        });
+        scene.add(transformControls);
+
+        group = new THREE.Object3D;
+        scene.add(group);
+
+        selectedGroup = new THREE.Object3D();
+        scene.add(selectedGroup);
 
         render();
+    }
+
+    var key = 0;  //记录ctrl/shift键
+    $(window).keydown(function (e) {
+        e.preventDefault();
+        var ctrlKey = e.ctrlKey || e.metaKey;
+        if (ctrlKey) {
+            key = 1;
+        } 
+    }).keyup(function (e) {
+        e.preventDefault();
+        key = 0;
+        var keyCode = e.keyCode || e.which || e.charCode;
+        var ctrlKey = e.ctrlKey || e.metaKey;
+        if (ctrlKey && keyCode == 67) { //ctrl+c
+            copyObj();
+        }
+        else if (ctrlKey && keyCode == 86) { //ctrl+V
+            pasteObj();
+        }
+        else if (ctrlKey && keyCode == 88) { //ctrl+X
+            cutObj();
+        }
+        else if (ctrlKey && keyCode == 65) { //ctrl+A
+            selectAll();
+        }
+        else if (keyCode == 46) { //del
+            removeObj();
+        }
+    });
+
+    function copyObj() {
+        copyObjects.splice(0, copyObjects.length);
+        for (var i = 0; i < selectedGroup.children.length; i++) {
+            if (!(selectedGroup.children[i] instanceof THREE.BoxHelper)) {
+                copyObjects.push(selectedGroup.children[i]);
+            }
+        }
+    }
+
+    function pasteObj() {
+        for (var i = 0; i < copyObjects.length; i++) {
+            var copyMaterial;
+            if (copyObjects[i].material.length !== undefined) {
+                copyMaterial = [];
+                for (var j = 0; j < copyObjects[i].material.length; j++) {
+                    var material = copyObjects[i].material[j].clone();
+                    if (copyObjects[i].material[j].userData.color != undefined) {
+                        material.color = copyObjects[i].material[j].userData.color;
+                        material.userData.color = undefined;
+                    }
+                    copyMaterial.push(material);
+                }
+            }
+            else {
+                copyMaterial = copyObjects[i].material.clone();
+                if (copyObjects[i].material.userData.color != undefined) {
+                    copyMaterial.color = copyObjects[i].material.userData.color;
+                    copyMaterial.userData.color = undefined;
+                }
+            }
+            var copyObj = new THREE.Mesh(copyObjects[i].geometry, copyMaterial);
+            copyObj.position.x = copyObjects[i].position.x + 50;
+            copyObj.position.z = copyObjects[i].position.y + 50;
+            copyObj.position.z = copyObjects[i].position.z + 50;
+            group.add(copyObj);
+            objects.push(copyObj);
+            var helper = new THREE.BoxHelper();
+            helper.setFromObject(copyObj);
+            helper.visible = false;
+            copyObj.userData.helper = helper;
+        }
+    }
+
+    function cutObj() {
+        copyObjects.splice(0, copyObjects.length);
+        var len = selectedGroup.children.length;
+        for (var i = 0; i < len; i++) {
+            if (!(selectedGroup.children[0] instanceof THREE.BoxHelper)) {
+                copyObjects.push(selectedGroup.children[0]);
+
+                var index = objects.indexOf(selectedGroup.children[0]);
+                if (index != -1) {
+                    objects.splice(index, 1);
+                }
+            }
+            selectedGroup.remove(selectedGroup.children[0]);
+        }
+        transformControls.detach();
+    }
+
+    function removeObj() {
+        var len = selectedGroup.children.length;
+        for (var i = 0; i < len; i++) {
+            var index = objects.indexOf(selectedGroup.children[0]);
+            if (index != -1) {
+                objects.splice(index, 1);
+            }
+            selectedGroup.remove(selectedGroup.children[0]);
+        }
+        transformControls.detach();
+    }
+
+    function selectAll() {
+        //首页去掉面的选中效果
+        if (selectedObject !== undefined && selectedFaceIndex !== undefined) {
+            if (selectedObject.material.length !== undefined) {
+                selectedObject.material[selectedFaceIndex].color = selectedObject.material[selectedFaceIndex].userData.color;
+                selectedObject.material[selectedFaceIndex].userData.color = undefined;
+                //selectedObject.material[selectedFaceIndex].wireframe = false;
+            }
+            else {
+                selectedObject.material.color = selectedObject.material.userData.color;
+                selectedObject.material.userData.color = undefined;
+                //selectedObject.material.wireframe = false;
+            }
+        }
+        //去掉单选
+        selectedObject = undefined;
+        selectedFaceIndex = undefined;
+        //实现全选
+        var len = group.children.length;
+        for (var i = 0; i < len; i++) {
+            var object = group.children[0];
+            if (!(object instanceof THREE.BoxHelper)) {
+                object.userData.helper.visible = true;
+            }
+            selectedGroup.attach(object);
+        }
+        //绑定控制器
+        transformControls.attach(selectedGroup);
     }
 
     /*
@@ -103,30 +252,153 @@
      */
     function onDocumentMouseClick(event) {
         //event.preventDefault();
+        if (event.offsetY <= 50) { //导航条
+            return;
+        }
         var intersects = getDeviceIntersects(event.offsetX, event.offsetY);
         if (intersects.length > 0) {
             var object = intersects[0].object;
-            selectedObject = object;
-            transformControls.attach(object);
+            console.log(object.toJSON());
+            if (key == 0) {
+                if (selectedObject === undefined) {
+                    //如果有多选，去掉选中效果
+                    for (var i = 0; i < selectedGroup.children.length; i++) {
+                        if (selectedGroup.children[i] instanceof THREE.BoxHelper) {
+                            selectedGroup.children[i].visible = false;
+                        }
+                    }
+                    var len = selectedGroup.children.length;
+                    for (var i = 0; i < len; i++) {
+                        group.attach(selectedGroup.children[0]);
+                    }
 
-            for (var i = 0; i < object.material.length; i++) {
-                var material = object.material[i];
-                if (material.userData.selected) {
-                    material.userData.selected = undefined;
-                    material.color = material.userData.color;
-                    material.userData.color = undefined;
-                    material.wireframe = false;
+                    selectedObject = object;
+                    transformControls.attach(object);
+                    //显示选中效果
+                    object.userData.helper.visible = true;
+                    //增加到选中集合中
+                    selectedGroup.attach(object);
+                    selectedGroup.attach(object.userData.helper);
+                    //设置当前面选中
+                    selectedFaceIndex = intersects[0].face.materialIndex;
+                    if (selectedObject.material.length !== undefined) {
+                        selectedObject.material[selectedFaceIndex].userData.color = selectedObject.material[selectedFaceIndex].color;
+                        selectedObject.material[selectedFaceIndex].color = new THREE.Color(0xffffff);
+                        //selectedObject.material[selectedFaceIndex].wireframe = true;
+                    }
+                    else {
+                        selectedObject.material.userData.color = selectedObject.material.color;
+                        selectedObject.material.color = new THREE.Color(0xff9900);
+                        //selectedObject.material.wireframe = true;
+                    }
+                }
+                else if (selectedObject == object) {
+                    if (selectedFaceIndex != intersects[0].face.materialIndex) {
+                        //取消上一次选中面的选中状态
+                        selectedObject.material[selectedFaceIndex].color = selectedObject.material[selectedFaceIndex].userData.color;
+                        selectedObject.material[selectedFaceIndex].userData.color = undefined;
+                        //selectedObject.material[selectedFaceIndex].wireframe = false;
+                        //设置当前面选中
+                        selectedFaceIndex = intersects[0].face.materialIndex;
+                        selectedObject.material[selectedFaceIndex].userData.color = selectedObject.material[selectedFaceIndex].color;
+                        selectedObject.material[selectedFaceIndex].color = new THREE.Color(0xffffff);
+                        //selectedObject.material[selectedFaceIndex].wireframe = true;
+                    }
+                }
+                else {
+                    //取消上次选中物体和面的选中状态
+                    for (var i = 0; i < selectedGroup.children.length; i++) {
+                        if (selectedGroup.children[i] instanceof THREE.BoxHelper) {
+                            selectedGroup.children[i].visible = false;
+                        }
+                    }
+                    var len = selectedGroup.children.length;
+                    for (var i = 0; i < len; i++) {
+                        group.attach(selectedGroup.children[0]);
+                    }
+                    //取消已选中的面
+                    if (selectedObject.material.length !== undefined) {
+                        selectedObject.material[selectedFaceIndex].color = selectedObject.material[selectedFaceIndex].userData.color;
+                        selectedObject.material[selectedFaceIndex].userData.color = undefined;
+                        //selectedObject.material[selectedFaceIndex].wireframe = false;
+                    }
+                    else {
+                        selectedObject.material.color = selectedObject.material.userData.color;
+                        selectedObject.material.userData.color = undefined;
+                        //selectedObject.material.wireframe = false;
+                    }
+
+                    selectedObject = object;
+                    transformControls.attach(object);
+                    //显示选中效果
+                    object.userData.helper.visible = true;
+                    selectedGroup.attach(object);
+                    selectedGroup.attach(object.userData.helper);
+                    //设置当前面选中
+                    selectedFaceIndex = intersects[0].face.materialIndex;
+                    if (selectedObject.material.length !== undefined) {
+                        selectedObject.material[selectedFaceIndex].userData.color = selectedObject.material[selectedFaceIndex].color;
+                        selectedObject.material[selectedFaceIndex].color = new THREE.Color(0xffffff);
+                        //selectedObject.material[selectedFaceIndex].wireframe = true;
+                    }
+                    else {
+                        selectedObject.material.userData.color = selectedObject.material.color;
+                        selectedObject.material.color = new THREE.Color(0xffffff);
+                        //selectedObject.material.wireframe = true;
+                    }
+
                 }
             }
-            selectedFaceIndex = intersects[0].face.materialIndex;
-            selectedObject.material[selectedFaceIndex].userData.selected = true;
-            selectedObject.material[selectedFaceIndex].userData.color = selectedObject.material[selectedFaceIndex].color;
-            selectedObject.material[selectedFaceIndex].color = new THREE.Color(0xff9900);
-            selectedObject.material[selectedFaceIndex].wireframe = true;
-            //更改面的颜色
-            //object.material[intersects[0].face.materialIndex].color = new THREE.Color(0x6600ff);
-            //object.material[intersects[0].face.materialIndex] = new THREE.MeshBasicMaterial({ color: 0x00ff00, map: new THREE.TextureLoader().load("Images/heroAccent.png"), side: THREE.DoubleSide });
-        } 
+            else if (key == 1) {
+                //首页去掉面的选中效果
+                if (selectedObject !== undefined && selectedFaceIndex !== undefined) {
+                    if (selectedObject.material.length !== undefined) {
+                        selectedObject.material[selectedFaceIndex].color = selectedObject.material[selectedFaceIndex].userData.color;
+                        selectedObject.material[selectedFaceIndex].userData.color = undefined;
+                        //selectedObject.material[selectedFaceIndex].wireframe = false;
+                    }
+                    else {
+                        selectedObject.material.color = selectedObject.material.userData.color;
+                        selectedObject.material.userData.color = undefined;
+                        //selectedObject.material.wireframe = false;
+                    }
+                }
+                //去掉单选
+                selectedObject = undefined;
+                selectedFaceIndex = undefined;
+                //实现多选
+                if (selectedGroup.children.indexOf(object) == -1) {
+                    object.userData.helper.visible = true;
+                    selectedGroup.attach(object);
+                    selectedGroup.attach(object.userData.helper);
+                }
+                else {
+                    object.userData.helper.visible = false;
+                    group.attach(object);
+                    group.attach(object.userData.helper);
+                }
+                //绑定控制器
+                transformControls.attach(selectedGroup);
+            }
+        }
+        else {
+            //取消上次选中物体和面的选中状态
+            //if (selectedObject !== undefined && selectedFaceIndex !== undefined) {
+            //    if (selectedObject.material.length !== undefined) {
+            //        selectedObject.material[selectedFaceIndex].color = selectedObject.material[selectedFaceIndex].userData.color;
+            //        selectedObject.material[selectedFaceIndex].userData.color = undefined;
+            //        //selectedObject.material[selectedFaceIndex].wireframe = false;
+            //    }
+            //    else {
+            //        selectedObject.material.color = selectedObject.material.userData.color;
+            //        selectedObject.material.userData.color = undefined;
+            //        //selectedObject.material.wireframe = false;
+            //    }
+            //}
+            //selectedObject = undefined;
+            //selectedFaceIndex = undefined;
+            //transformControls.detach();
+        }
     }
 
     /*
@@ -134,9 +406,9 @@
  *   */
     function onDocumentMouseMove(event) {
         event.preventDefault();
-        if (selectedObj) {
+        if (selectedObject) {
             var mouse = convertTo3DCoordinate(event.clientX, event.clientY);
-            selectedObj.position.copy(mouse);
+            selectedObject.position.copy(mouse);
         }
         else {
             var intersects = getDeviceIntersects(event.offsetX, event.offsetY);
@@ -161,9 +433,9 @@
         var intersects = getDeviceIntersects(event.offsetX, event.offsetY);
         if(intersects.length > 0){
             var object = intersects[0].object;
-            selectedObj = object;
+            selectedObject = object;
         }else{
-            selectedObj = undefined;
+            selectedObject = undefined;
         }
     }
 
@@ -195,9 +467,16 @@
     }
 
     function render() {
-        controls.update();
-        TWEEN.update();
-        transformControls.update();
+        for (var i = 0; i < selectedGroup.children.length; i++) {
+            if (selectedGroup.children[i] instanceof THREE.BoxHelper) {
+                selectedGroup.children[i].update();
+            }
+        }
+        for (var i = 0; i < group.children.length; i++) {
+            if (group.children[i] instanceof THREE.BoxHelper) {
+                group.children[i].update();
+            }
+        }
         requestAnimationFrame(render);
         renderer.render(scene, camera);
     }
@@ -208,7 +487,10 @@
         transformControls = new THREE.TransformControls(camera, renderer.domElement);
         transformControls.setMode('translate');
         scene.add(transformControls);
-
+        transformControls.addEventListener('change', render);
+        transformControls.addEventListener('dragging-changed', function (event) {
+            control.enabled = ! event.value;
+        });
         // 初始化拖拽控件
         /*var dragControls = new THREE.DragControls(objects, camera, renderer.domElement);
 
@@ -230,25 +512,90 @@
     function changeColor() {
         var color = parseInt($(".Color").val().substr(1), 16);
         if (selectedObject !== undefined && selectedFaceIndex !== undefined) {
-            selectedObject.material[selectedFaceIndex].userData.selected = true;
-            selectedObject.material[selectedFaceIndex].userData.color = new THREE.Color(color);
-            selectedObject.material[selectedFaceIndex].color = new THREE.Color(color);
-            selectedObject.material[selectedFaceIndex].wireframe = false;
+            if (selectedObject.material.length != undefined) {
+                selectedObject.material[selectedFaceIndex] = new THREE.MeshBasicMaterial({ color: color, side: THREE.DoubleSide });
+                selectedObject.material[selectedFaceIndex].userData.color = new THREE.Color(color);
+                selectedObject.material[selectedFaceIndex].wireframe = false;
+            }
+            else {
+                selectedObject.material = new THREE.MeshBasicMaterial({ color: color, side: THREE.DoubleSide });
+                selectedObject.material.userData.color = new THREE.Color(color);
+                selectedObject.material.wireframe = false;
+            }
         }
     }
 
     function changeMap() {
-        console.log(materialMap);
         var material = new THREE.MeshBasicMaterial({ color: 0x00ff00, map: materialMap.texture, side: THREE.DoubleSide });
         if (selectedObject !== undefined && selectedFaceIndex !== undefined) {
-            selectedObject.material[selectedFaceIndex] = new THREE.MeshBasicMaterial({ map: materialMap.texture, side: THREE.DoubleSide });
-            selectedObject.material[selectedFaceIndex].userData.selected = true;
-            selectedObject.material[selectedFaceIndex].wireframe = false;
+            if (selectedObject.material.length != undefined) {
+                selectedObject.material[selectedFaceIndex] = new THREE.MeshBasicMaterial({ color: 0xffffff, map: materialMap.texture, side: THREE.DoubleSide });
+                selectedObject.material[selectedFaceIndex].wireframe = false;
+                selectedObject.material[selectedFaceIndex].userData.color = new THREE.Color(0xffffff);
+            }
+            else {
+                selectedObject.material = new THREE.MeshBasicMaterial({ color: 0xffffff, map: materialMap.texture, side: THREE.DoubleSide });
+                selectedObject.material.wireframe = false;
+                selectedObject.material.userData.color = new THREE.Color(0xffffff);
+            }
         }
     }
 
     $(function () {
         init();
+
+        $(".cut-btn").click(function (e) {
+            cutObj();
+        })
+
+        $(".copy-btn").click(function (e) {
+            copyObj();
+        })
+
+        $(".paste-btn").click(function (e) {
+            pasteObj();
+        })
+
+        $(".del-btn").click(function (e) {
+            removeObj();
+        })
+
+        $(".select-all-btn").click(function (e) {
+            selectAll();
+        })
+
+        $(".plane-btn").click(function (e) {
+            var meshMaterial = new THREE.MeshBasicMaterial({ color: 0xfff000, side: THREE.DoubleSide });
+            meshMaterial.side = THREE.DoubleSide;
+            var planeGeometry = new THREE.PlaneGeometry(100, 100, 10, 10);
+            var plane = new THREE.Mesh(planeGeometry, meshMaterial);
+            plane.position.y = 50;
+            plane.name = "plane";
+            objects.push(plane);
+            group.add(plane);
+            //选中效果
+            var helper = new THREE.BoxHelper();
+            helper.setFromObject(plane);
+            helper.visible = false;
+            plane.userData.helper = helper;
+            //group.add(helper);
+        })
+
+        $(".circle-btn").click(function (e) {
+            var geometry = new THREE.CircleGeometry(100, 64);
+            var material = new THREE.MeshBasicMaterial({ color: 0xffff00 });
+            var circle = new THREE.Mesh(geometry, material);
+            circle.position.y = 50;
+            circle.name = "circle";
+            objects.push(circle);
+            group.add(circle);
+            //选中效果
+            var helper = new THREE.BoxHelper();
+            helper.setFromObject(circle);
+            helper.visible = false;
+            circle.userData.helper = helper;
+            //group.add(helper);
+        })
 
         $(".box-btn").click(function (e) {
             var mesh1 = new THREE.MeshBasicMaterial({ color: 0x000000, side: THREE.DoubleSide })
@@ -257,25 +604,94 @@
             var mesh4 = new THREE.MeshBasicMaterial({ color: 0x000000, side: THREE.DoubleSide })
             var mesh5 = new THREE.MeshBasicMaterial({ color: 0x000000, side: THREE.DoubleSide })
             var mesh6 = new THREE.MeshBasicMaterial({ color: 0x000000, side: THREE.DoubleSide })
-            var cubeGeometry = new THREE.BoxGeometry(100, 100, 100);
-            var cubeMaterial = new THREE.MeshFaceMaterial([mesh1, mesh2, mesh3, mesh4, mesh5, mesh6]);
-            var cube = new THREE.Mesh(cubeGeometry, cubeMaterial);
+            var cubeGeometry = new THREE.BoxBufferGeometry(100, 100, 100);
+            //var cubeMaterial = new THREE.MeshBasicMaterial([mesh1, mesh2, mesh3, mesh4, mesh5, mesh6]);
+            var cube = new THREE.Mesh(cubeGeometry, [mesh1, mesh2, mesh3, mesh4, mesh5, mesh6]);
             cube.position.y = 50;
             cube.name = "box";
-            scene.add(cube);
+            //scene.add(cube);
             objects.push(cube);
+            group.add(cube);
+            //选中效果
+            var helper = new THREE.BoxHelper();
+            helper.setFromObject(cube);
+            helper.visible = false;
+            cube.userData.helper = helper;
+            //group.add(helper);
+        })
+
+        $(".sphere-btn").click(function (e) {
+            var geometry = new THREE.SphereGeometry(100, 64, 64);
+            var material = new THREE.MeshBasicMaterial({ color: 0xffff00 });
+            var sphere = new THREE.Mesh(geometry, material);
+            sphere.position.y = 50;
+            sphere.name = "sphere";
+            objects.push(sphere);
+            group.add(sphere);
+            //选中效果
+            var helper = new THREE.BoxHelper();
+            helper.setFromObject(sphere);
+            helper.visible = false;
+            sphere.userData.helper = helper;
+            //group.add(helper);
         })
 
         $(".cylinder-btn").click(function (e) {
-            geometry = new THREE.CylinderGeometry(4, 4, 4, 64);
-            var cube = new THREE.Mesh(geometry);
+            geometry = new THREE.CylinderGeometry(100, 100, 100, 64);
+            // 材质
+            meshMaterial = [
+                new THREE.MeshBasicMaterial({ wireframe: false, color: 0x000000 }),
+                new THREE.MeshBasicMaterial({ wireframe: false, color: 0x000000 }),
+                new THREE.MeshBasicMaterial({ wireframe: false, color: 0x000000 })
+            ];
+            var cube = new THREE.Mesh(geometry, meshMaterial);
             cube.position.x = 10
             cube.position.y = 0.55;
             cube.position.z = 0;
             cube.rotation.x = Math.PI / 2;
             cube.userData.type = 'cylinder';
-            scene.add(cube);
+            group.add(cube);
             objects.push(cube);
+            //选中效果
+            var helper = new THREE.BoxHelper();
+            helper.setFromObject(cube);
+            helper.visible = false;
+            cube.userData.helper = helper;
+            //group.add(helper);
+        })
+
+        $(".tube-btn").click(function (e) {
+            function CustomSinCurve(scale) {
+                THREE.Curve.call(this);
+                this.scale = (scale === undefined) ? 1 : scale;
+            }
+            CustomSinCurve.prototype = Object.create(THREE.Curve.prototype);
+            CustomSinCurve.prototype.constructor = CustomSinCurve;
+            CustomSinCurve.prototype.getPoint = function (t) {
+                var tx = t * 3 - 1.5;
+                var ty = Math.sin(2 * Math.PI * t);
+                var tz = 0;
+                return new THREE.Vector3(tx, ty, tz).multiplyScalar(this.scale);
+            };
+
+            var path = new CustomSinCurve(10);
+            var geometry = new THREE.TubeGeometry(path, 64, 2, 64, false);
+            var material = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+            var mesh = new THREE.Mesh(geometry, material);
+            mesh.position.y = 50;
+            mesh.name = "tube";
+            objects.push(mesh);
+            group.add(mesh);
+            //选中效果
+            var helper = new THREE.BoxHelper();
+            helper.setFromObject(mesh);
+            helper.visible = false;
+            mesh.userData.helper = helper;
+            //group.add(helper);
+        })
+
+        $(".text-btn").click(function (e) {
+            createText('Hello World');
         })
 
         $(".trans-btn").find("i").show();
@@ -286,8 +702,8 @@
             $(".scale-btn").find("i").hide();
             $(".rotate-btn").find("i").hide();
             transformControls.setMode('translate');
-            if (selectedObj) {
-                transformControls.attach(selectedObj);
+            if (selectedObject) {
+                transformControls.attach(selectedObject);
             }
         })
         $(".scale-btn").click(function (e) {
@@ -295,8 +711,8 @@
             $(".scale-btn").find("i").show();
             $(".rotate-btn").find("i").hide();
             transformControls.setMode('scale');
-            if (selectedObj) {
-                transformControls.attach(selectedObj);
+            if (selectedObject) {
+                transformControls.attach(selectedObject);
             }
         })
         $(".rotate-btn").click(function (e) {
@@ -304,14 +720,87 @@
             $(".scale-btn").find("i").hide();
             $(".rotate-btn").find("i").show();
             transformControls.setMode('rotate');
-            if (selectedObj) {
-                transformControls.attach(selectedObj);
+            if (selectedObject) {
+                transformControls.attach(selectedObject);
             }
+        })
+
+        $(".import-btn").click(function (e) {
+            var form = document.createElement('form');
+            form.style.display = 'none';
+            document.body.appendChild(form);
+            var fileInput = document.createElement('input');
+            fileInput.type = 'file';
+            fileInput.addEventListener('change', function (event) {
+                var file = fileInput.files[0];
+                var reader = new FileReader();
+                reader.addEventListener('load', function (event) {
+                    var contents = event.target.result;
+                    var loader = new THREE.GLTFLoader();
+                    loader.parse(contents, '', function (result) {
+                        console.log(result)
+                        group.add(result.scene);
+                        objects.push(result.scene);
+                    });
+
+                }, false);
+                reader.readAsArrayBuffer(file);
+            });
+            form.appendChild(fileInput);
+            fileInput.click();
+        })
+
+        $(".export-btn").click(function (e) {
+            var exporter = new THREE.GLTFExporter();
+            exporter.parse(group, function (result) {
+                saveString(JSON.stringify(result, null, 2), 'scene.gltf');
+            });
         })
 
         materialMap = new UI.Texture().onChange(changeMap);
         $("#toolDiv").append($(materialMap.dom));
-	})
+    })
+    
+    function createText (text) {
+        var textLoader = new THREE.FontLoader()
+        textLoader.load(
+          './optimer_regular.typeface.json',
+          function (font) {
+              var options = {
+                  size: 10,
+                  height: 0,
+                  font: font, // “引用js字体必须换成英文”
+                  bevelThickness: 1,
+                  bevelSize: 1,
+                  bevelSegments: 1,
+                  curveSegments: 50,
+                  steps: 1
+              }
+              var textGeo = new THREE.TextGeometry(text, options);
+              var textMesh = new THREE.Mesh(textGeo, new THREE.MeshBasicMaterial())
+       
+              objects.push(textMesh);
+              group.add(textMesh);
+          }
+        );
+    }
+
+    var link = document.createElement('a');
+    link.style.display = 'none';
+    document.body.appendChild(link); // Firefox workaround, see #6594
+    function save(blob, filename) {
+        link.href = URL.createObjectURL(blob);
+        link.download = filename || 'data.json';
+        link.click();
+    }
+
+    function saveArrayBuffer(buffer, filename) {
+        save(new Blob([buffer], { type: 'application/octet-stream' }), filename);
+    }
+
+    function saveString(text, filename) {
+        save(new Blob([text], { type: 'text/plain' }), filename);
+    }
 
 </script>
 <nav class="navbar navbar-inverse navbar-fixed-top">
@@ -330,15 +819,15 @@
             <li class="dropdown li-menu-edit">
                 <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">编辑<span class="caret"></span></a>
                 <ul class="dropdown-menu">
-                    <li><a href="#" class="undo-btn">撤销(ctrl+z)</a></li>
-                    <li><a href="#" class="redo-btn">重做(ctrl+y)</a></li>
+                    <li><a href="#" class="undo-btn">撤销(Ctrl+Z)</a></li>
+                    <li><a href="#" class="redo-btn">重做(Ctrl+Y)</a></li>
                     <li role="separator" class="divider"></li>
-                    <li><a href="#" class="cat-btn">剪切(ctrl+x)</a></li>
-                    <li><a href="#" class="copy-btn">复制(ctrl+c)</a></li>
-                    <li><a href="#" class="paste-btn">粘贴(ctrl+v)</a></li>
+                    <li><a href="#" class="cut-btn">剪切(Ctrl+X)</a></li>
+                    <li><a href="#" class="copy-btn">复制(Ctrl+C)</a></li>
+                    <li><a href="#" class="paste-btn">粘贴(Ctrl+V)</a></li>
                     <li role="separator" class="divider"></li>
-                    <li><a href="#" class="paste-btn">删除(ctrl+v)</a></li>
-                    <li><a href="#" class="select-all-btn">全选(ctrl+a)</a></li>
+                    <li><a href="#" class="del-btn">删除(Del)</a></li>
+                    <li><a href="#" class="select-all-btn">全选(Ctrl+A)</a></li>
                 </ul>
             </li>
             <li class="dropdown li-menu-shape">
